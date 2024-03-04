@@ -27,6 +27,16 @@ const elements = {
         r: 0xaa,
         g: 0xaa,
         b: 0xaa
+    },
+    water: {
+        r: 0x08,
+        g: 0x08,
+        b: 0xff
+    },
+    oil: {
+        r: 0x87,
+        g: 0x5d,
+        b: 0x3a
     }
 };
 
@@ -78,7 +88,7 @@ function cascade() {
     }
 
     // start from next to bottom row and work up
-    for (let y = totalRows - 1; y >= 0; --y) {
+    for (let y = totalRows - 2; y >= 0; --y) {
         for (let x = 0; x < totalColumns; ++x) {
             const element = getElementAtPixel(x, y);
 
@@ -131,7 +141,7 @@ function cascade() {
             let totalWeight = 0;
 
             for (const dest of potentialDestinations) {
-                if (dest.x > 0 && dest.x < totalColumns - 1 && getElementAtPixel(dest.x, dest.y) === 'empty') {
+                if (dest.x > 0 && dest.x < totalColumns - 1 && isPossibleDestination(dest.x, dest.y, element)) {
                     possibleDestinations.push(dest);
                     totalWeight += dest.weight;
                 }
@@ -161,11 +171,17 @@ function cascade() {
                 }
             }
 
+            const destOriginalElement = getElementAtPixel(finalDestination.x, finalDestination.y);
 
-            markPixel(x, y, 'empty');
+            markPixel(x, y, destOriginalElement);
             markPixel(finalDestination.x, finalDestination.y, element)
         }
     }
+}
+
+function isPossibleDestination(destX, destY, sourceElement) {
+    const destElement = getElementAtPixel(destX, destY);
+    return destElement === 'empty' || (sourceElement === 'water' && destElement === 'oil');
 }
 
 async function clearCanvas()
@@ -185,18 +201,36 @@ function getElementAtPixel(x, y) {
     const actualG = imageData.data[pixelIndex + 1];
     const actualB = imageData.data[pixelIndex + 2];
 
-    if (actualR === elements.empty.r && actualG === elements.empty.g && actualB === elements.empty.b) {
+    const actualColors = {
+        r: actualR,
+        g: actualG,
+        b: actualB
+    }
+
+    if (isElement(actualColors, elements.empty)) {
         return 'empty';
     }
-    else if (actualR === elements.sand.r && actualG === elements.sand.g && actualB === elements.sand.b) {
+    else if (isElement(actualColors, elements.sand)) {
         return 'sand';
     }
-    else if (actualR === elements.wall.r && actualG === elements.wall.g && actualB === elements.wall.b) {
+    else if (isElement(actualColors, elements.wall)) {
         return 'wall';
+    }
+    else if (isElement(actualColors, elements.water)) {
+        return 'water';
+    }
+    else if (isElement(actualColors, elements.oil)) {
+        return 'oil';
     }
     else {
         return 'empty';
     }
+}
+
+function isElement(actualColors, element) {
+    return actualColors.r === element.r 
+        && actualColors.g === element.g 
+        && actualColors.b === element.b;
 }
 
 function getImageDataPixelIndex(x, y) {
