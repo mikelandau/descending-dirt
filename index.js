@@ -20,6 +20,8 @@ let selectedElement;
 
 let totalRows = 0, totalColumns = 0;
 
+const CASCADE_DIRECTION_UP = -1, CASCADE_DIRECTION_DOWN = 1, CASCADE_DIRECTION_STILL = 0;
+
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -105,76 +107,99 @@ function getCanvasMousePosition() {
 }
 
 function cascade() {
-    // clear bottom row
+    // clear bottom and top row
     for (let x = 0; x < totalColumns; ++x) {
-        markPixel(x, totalRows - 1, 'empty');
+        markPixel(x, 0, elements[0]);
+        markPixel(x, totalRows - 1, elements[0]);
     }
 
-    // start from next to bottom row and work up
-    for (let y = totalRows - 2; y >= 0; --y) {
-        // loop through every pixel of this row
-        for (let x = 0; x < totalColumns; ++x) {
-            const element = getElementAtPixel(x, y);
+    // cascade down starting from next to bottom row and working up
+    for (let y = totalRows - 2; y >= 1; --y) {
+        cascadeRow(y, CASCADE_DIRECTION_DOWN)
+    }
 
-            // don't move these
-            if (element.name === 'empty' || element.name === 'wall') {
-                continue;
-            }
+    // cascade up starting from next to top row and working down
+    for (let y = 1; y < totalRows - 2; ++y) {
+        cascadeRow(y, CASCADE_DIRECTION_UP)
+    }
 
-            // look through the destinations table and get a list of possible destinations for this pixel to move
-            const possibleDestinations = [];
-            let totalWeight = 0;
-            for (const dest of destinations) {
-                // add the deltas to the current pixel
-                var potentialDestination = {
-                    x: x + dest.deltaX,
-                    y: y + dest.deltaY,
-                    weight: dest.weight
-                };
+    // TODO see if going down then up works
+}
 
-                // see if that's a space this pixel can move to
-                if (potentialDestination.x > 0 
-                    && potentialDestination.x < totalColumns - 1 
-                    && isPossibleDestination(potentialDestination.x, potentialDestination.y, element)) {
-                    possibleDestinations.push(potentialDestination);
-                    totalWeight += potentialDestination.weight;
-                }
-            }
+function cascadeRow(y, direction) {
+    // loop through every pixel of this row
+    for (let x = 0; x < totalColumns; ++x) {
+        const element = getElementAtPixel(x, y);
 
-            // move on to the next pixel if no possible destinations to move
-            if (possibleDestinations.length === 0) {
-                continue;
-            }
-
-            let finalDestination;
-
-            possibleDestinations.push({
-                x: x,
-                y: y,
-                weight: stayPutWeight
-            });
-            totalWeight += stayPutWeight;
-
-            finalDestination = possibleDestinations[0];
-
-            if (possibleDestinations.length > 1) {
-                let pickedWeight = Math.floor(Math.random() * totalWeight);
-                for (const dest of possibleDestinations) {
-                    if (pickedWeight < dest.weight) {
-                        finalDestination = dest;
-                        break;
-                    }
-                    pickedWeight -= dest.weight;
-                }
-            }
-
-            const destOriginalElement = getElementAtPixel(finalDestination.x, finalDestination.y);
-
-            markPixel(x, y, destOriginalElement);
-            markPixel(finalDestination.x, finalDestination.y, element)
+        // only move elements for this direction
+        if (element.direction !== direction) {
+            continue;
         }
+
+        if (element.mortality) {
+            // delete the pixel according to its "mortality" rate
+            const random = Math.floor(Math.random() * 100);
+            if (random < element.mortality) {
+                markPixel(x, y, elements[0]);
+                // once dead, move to the next pixel
+                continue;
+            }
+        }
+
+        // look through the destinations table and get a list of possible destinations for this pixel to move
+        const possibleDestinations = [];
+        let totalWeight = 0;
+        for (const dest of destinations) {
+            // add the deltas to the current pixel
+            var potentialDestination = {
+                x: x + dest.deltaX,
+                y: y + dest.deltaY * element.direction,
+                weight: dest.weight
+            };
+
+            // see if that's a space this pixel can move to
+            if (potentialDestination.x > 0 
+                && potentialDestination.x < totalColumns - 1 
+                && isPossibleDestination(potentialDestination.x, potentialDestination.y, element)) {
+                possibleDestinations.push(potentialDestination);
+                totalWeight += potentialDestination.weight;
+            }
+        }
+
+        // move on to the next pixel if no possible destinations to move
+        if (possibleDestinations.length === 0) {
+            continue;
+        }
+
+        let finalDestination;
+
+        possibleDestinations.push({
+            x: x,
+            y: y,
+            weight: stayPutWeight
+        });
+        totalWeight += stayPutWeight;
+
+        finalDestination = possibleDestinations[0];
+
+        if (possibleDestinations.length > 1) {
+            let pickedWeight = Math.floor(Math.random() * totalWeight);
+            for (const dest of possibleDestinations) {
+                if (pickedWeight < dest.weight) {
+                    finalDestination = dest;
+                    break;
+                }
+                pickedWeight -= dest.weight;
+            }
+        }
+
+        const destOriginalElement = getElementAtPixel(finalDestination.x, finalDestination.y);
+
+        markPixel(x, y, destOriginalElement);
+        markPixel(finalDestination.x, finalDestination.y, element)
     }
 }
+
 
 function isPossibleDestination(destX, destY, sourceElement) {
     const destElement = getElementAtPixel(destX, destY);
