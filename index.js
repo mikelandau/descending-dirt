@@ -122,8 +122,6 @@ function cascade() {
     for (let y = 1; y < totalRows - 2; ++y) {
         cascadeRow(y, CASCADE_DIRECTION_UP)
     }
-
-    // TODO see if going down then up works
 }
 
 function cascadeRow(y, direction) {
@@ -143,6 +141,21 @@ function cascadeRow(y, direction) {
                 markPixel(x, y, elements[0]);
                 // once dead, move to the next pixel
                 continue;
+            }
+        }
+
+        if (element.engulfs) {
+            for (let i = x - 2; i <= x + 2; ++i) {
+                for (let j = y - 2; j <= y + 2; ++j) {
+                    if (i > 0 && i < totalColumns && j > 0 && j < totalRows) {
+                        const destElement = getElementAtPixel(i, j)
+                        for (engulfedElement of element.engulfs) {
+                            if (destElement.name === engulfedElement) {
+                                markPixel(i, j, element)
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -173,6 +186,7 @@ function cascadeRow(y, direction) {
 
         let finalDestination;
 
+        // add the "stay put" position as a possibility
         possibleDestinations.push({
             x: x,
             y: y,
@@ -182,6 +196,7 @@ function cascadeRow(y, direction) {
 
         finalDestination = possibleDestinations[0];
 
+        // galaxy-brained algorithm to pick a random destination based on weight
         if (possibleDestinations.length > 1) {
             let pickedWeight = Math.floor(Math.random() * totalWeight);
             for (const dest of possibleDestinations) {
@@ -193,8 +208,8 @@ function cascadeRow(y, direction) {
             }
         }
 
+        // swap the two pixels
         const destOriginalElement = getElementAtPixel(finalDestination.x, finalDestination.y);
-
         markPixel(x, y, destOriginalElement);
         markPixel(finalDestination.x, finalDestination.y, element)
     }

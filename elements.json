@@ -40,6 +40,7 @@
         "g": 0,
         "b": 0,
         "direction": -1,
-        "mortality": 50
+        "mortality": 15,
+        "engulfs": [ "oil" ]
     }
 ]
