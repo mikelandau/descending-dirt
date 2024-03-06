@@ -15,38 +15,14 @@ let allowCascade = true;
 let destinations = [];
 let stayPutWeight = 1;
 
-const elements = {
-    empty: {
-        r: 0x00,
-        g: 0x00,
-        b: 0x00
-    },
-    sand: {
-        r: 0xff,
-        g: 0xcb,
-        b: 0x6b
-    },
-    wall: {
-        r: 0xaa,
-        g: 0xaa,
-        b: 0xaa
-    },
-    water: {
-        r: 0x20,
-        g: 0x40,
-        b: 0xff
-    },
-    oil: {
-        r: 0x87,
-        g: 0x5d,
-        b: 0x3a
-    },
-    fire: {
-        r: 0xff,
-        g: 0x00,
-        b: 0x00
-    }
-};
+let elements = [];
+let selectedElement;
+
+let totalRows = 0, totalColumns = 0;
+
+function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 async function init() {
     console.log('loading destinations');
@@ -55,9 +31,46 @@ async function init() {
     destinations = destinationsJson.destinations;
     stayPutWeight = destinationsJson.stayPutWeight;
 
+    console.log('loading elements');
+    const elementsResponse = await fetch('elements.json');
+    const elementsJson = await elementsResponse.json();
+    elements = [];
+    for (const elementJson of elementsJson) {
+        // parse string color value to integer -- comparing integers is faster than comparing strings.
+        // json doesn't support hex literals, so this way we can use either hex string or decimal integer
+        // in the json file, but the actual object will always use integers.
+        const element = {
+            ...elementJson,
+            r: parseInt(elementJson.r),
+            g: parseInt(elementJson.g),
+            b: parseInt(elementJson.b)
+        };
+        elements.push(element);
+    }
+
+    const elementOptions = elements.map((element, i) => {
+        const elementOption = document.createElement('option');
+        elementOption.setAttribute('value', element.name);
+        if (i === 0) {
+            elementOption.selected = true;
+        }
+        var textContent = document.createTextNode(capitalize(element.name));
+        elementOption.appendChild(textContent);
+        return elementOption;
+    });
+
+    elementDropDown.innerText = '';
+    for (const option of elementOptions) {
+        elementDropDown.appendChild(option);
+    }
+
+    selectedElement = elements[0];
+
     const bounding = canvas.getBoundingClientRect();
     await clearCanvas(ctx);
     imageData = ctx.getImageData(0, 0, bounding.width, bounding.height);
+    totalRows = imageData.width;
+    totalColumns = imageData.height;
 }
 
 function step() {
@@ -72,11 +85,10 @@ function draw() {
     
     if (mouseButtonPressed) {
         const mouse = getCanvasMousePosition();
-        const element = elementDropDown.value
 
         for (let i = mouse.X - 5; i < mouse.X + 5; ++i) {
             for (let j = mouse.Y - 5; j < mouse.Y + 5; ++j) {
-                markSquare(mouse.X, mouse.Y, 5, element);
+                markSquare(mouse.X, mouse.Y, 5, selectedElement);
             }
         }
     }
@@ -93,9 +105,6 @@ function getCanvasMousePosition() {
 }
 
 function cascade() {
-    const totalRows = imageData.height;
-    const totalColumns = imageData.width;
-    
     // clear bottom row
     for (let x = 0; x < totalColumns; ++x) {
         markPixel(x, totalRows - 1, 'empty');
@@ -108,7 +117,7 @@ function cascade() {
             const element = getElementAtPixel(x, y);
 
             // don't move these
-            if (element === 'empty' || element === 'wall') {
+            if (element.name === 'empty' || element.name === 'wall') {
                 continue;
             }
 
@@ -169,7 +178,7 @@ function cascade() {
 
 function isPossibleDestination(destX, destY, sourceElement) {
     const destElement = getElementAtPixel(destX, destY);
-    return destElement === 'empty' || (sourceElement === 'water' && destElement === 'oil');
+    return destElement.name === 'empty' || (sourceElement.name === 'water' && destElement.name === 'oil');
 }
 
 async function clearCanvas()
@@ -195,27 +204,13 @@ function getElementAtPixel(x, y) {
         b: actualB
     }
 
-    if (isElement(actualColors, elements.empty)) {
-        return 'empty';
+    for (const element of elements) {
+        if (isElement(actualColors, element)) {
+            return element;
+        }
     }
-    else if (isElement(actualColors, elements.sand)) {
-        return 'sand';
-    }
-    else if (isElement(actualColors, elements.wall)) {
-        return 'wall';
-    }
-    else if (isElement(actualColors, elements.water)) {
-        return 'water';
-    }
-    else if (isElement(actualColors, elements.oil)) {
-        return 'oil';
-    }
-    else if (isElement(actualColors, elements.fire)) {
-        return 'fire';
-    }
-    else {
-        return 'empty';
-    }
+    // default to the first in the list (best this is set to "empty")
+    return elements[0];
 }
 
 function isElement(actualColors, element) {
@@ -243,21 +238,11 @@ function markPixel(x, y, element)
         return;
     }
 
-    const elementColors = elements[element];
-
-    if (!elementColors) {
-        console.error('bad element ' + element);
-    }
-
-    const r = elementColors.r;
-    const g = elementColors.g;
-    const b = elementColors.b;
-
     var pixels = imageData.data;
     var pixelIndex = y * (imageData.width * 4) + x * 4;
-    pixels[pixelIndex] = r;
-    pixels[pixelIndex + 1] = g;
-    pixels[pixelIndex + 2] = b;
+    pixels[pixelIndex] = element.r;
+    pixels[pixelIndex + 1] = element.g;
+    pixels[pixelIndex + 2] = element.b;
     pixels[pixelIndex + 3] = 0xff;
 }
 
@@ -284,3 +269,15 @@ document.addEventListener('keydown', function(event) {
         allowCascade = !allowCascade;
     }
 });
+
+elementDropDown.addEventListener('change', event => {
+    const elementName = event.target.value;
+    for (const element of elements) {
+        if (element.name === elementName) {
+            console.log(element);
+            selectedElement = element;
+            return;
+        }
+    }
+    console.error(`invalid element: ${elementName}`);
+})
