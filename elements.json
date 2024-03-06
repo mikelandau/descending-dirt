@@ -1,0 +1,45 @@
+[
+    {
+        "name": "empty",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "direction": 0
+    },
+    {
+        "name": "sand",
+        "r": "0xff",
+        "g": "0xcb",
+        "b": "0x6b",
+        "direction": 1
+    },
+    {
+        "name": "wall",
+        "r": "0xaa",
+        "g": "0xaa",
+        "b": "0xaa",
+        "direction": 0
+    },
+    {
+        "name": "water",
+        "r": "0x20",
+        "g": "0x40",
+        "b": "0xff",
+        "direction": 1
+    },
+    {
+        "name": "oil",
+        "r": "0x87",
+        "g": "0x5d",
+        "b": "0x3a",
+        "direction": 1
+    },
+    {
+        "name": "fire",
+        "r": "0xff",
+        "g": 0,
+        "b": 0,
+        "direction": -1,
+        "mortality": 50
+    }
+]

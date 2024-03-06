@@ -1,0 +1,40 @@
+{
+    "destinations": [
+        {
+            "deltaX": 0,
+            "deltaY": 1,
+            "weight": 20
+        },
+        {
+            "deltaX": 1,
+            "deltaY": 1,
+            "weight": 1
+        },
+        {
+            "deltaX": -1,
+            "deltaY": 1,
+            "weight": 1
+        },
+        {
+            "deltaX": -2,
+            "deltaY": 1,
+            "weight": 1
+        },
+        {
+            "deltaX": 2,
+            "deltaY": 1,
+            "weight": 1
+        },
+        {
+            "deltaX": 1,
+            "deltaY": 0,
+            "weight": 1
+        },
+        {
+            "deltaX": -1,
+            "deltaY": 0,
+            "weight": 1
+        }
+    ],
+    "stayPutWeight": 2
+}

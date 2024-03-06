@@ -12,6 +12,9 @@ let clientMouseY = 0;
 
 let allowCascade = true;
 
+let destinations = [];
+let stayPutWeight = 1;
+
 const elements = {
     empty: {
         r: 0x00,
@@ -29,18 +32,29 @@ const elements = {
         b: 0xaa
     },
     water: {
-        r: 0x08,
-        g: 0x08,
+        r: 0x20,
+        g: 0x40,
         b: 0xff
     },
     oil: {
         r: 0x87,
         g: 0x5d,
         b: 0x3a
+    },
+    fire: {
+        r: 0xff,
+        g: 0x00,
+        b: 0x00
     }
 };
 
 async function init() {
+    console.log('loading destinations');
+    const destinationsResponse = await fetch('destinations.json');
+    const destinationsJson = await destinationsResponse.json();
+    destinations = destinationsJson.destinations;
+    stayPutWeight = destinationsJson.stayPutWeight;
+
     const bounding = canvas.getBoundingClientRect();
     await clearCanvas(ctx);
     imageData = ctx.getImageData(0, 0, bounding.width, bounding.height);
@@ -89,67 +103,41 @@ function cascade() {
 
     // start from next to bottom row and work up
     for (let y = totalRows - 2; y >= 0; --y) {
+        // loop through every pixel of this row
         for (let x = 0; x < totalColumns; ++x) {
             const element = getElementAtPixel(x, y);
 
+            // don't move these
             if (element === 'empty' || element === 'wall') {
                 continue;
             }
 
-            const potentialDestinations = [
-                {
-                    x: x,
-                    y: y+1,
-                    weight: 20
-                },
-                {
-                    x: x+1,
-                    y: y+1,
-                    weight: 1
-                },
-                {
-                    x: x-1,
-                    y: y+1,
-                    weight: 1
-                },
-                {
-                    x: x-2,
-                    y: y+1,
-                    weight: 1
-                },
-                {
-                    x: x+2,
-                    y: y+1,
-                    weight: 1
-                },
-                {
-                    x: x+1,
-                    y: y,
-                    weight: 1
-                },
-                {
-                    x: x-1,
-                    y: y,
-                    weight: 1
-                }
-            ];
-
-            const stayPutWeight = 2;
-
+            // look through the destinations table and get a list of possible destinations for this pixel to move
             const possibleDestinations = [];
-            let finalDestination;
             let totalWeight = 0;
+            for (const dest of destinations) {
+                // add the deltas to the current pixel
+                var potentialDestination = {
+                    x: x + dest.deltaX,
+                    y: y + dest.deltaY,
+                    weight: dest.weight
+                };
 
-            for (const dest of potentialDestinations) {
-                if (dest.x > 0 && dest.x < totalColumns - 1 && isPossibleDestination(dest.x, dest.y, element)) {
-                    possibleDestinations.push(dest);
-                    totalWeight += dest.weight;
+                // see if that's a space this pixel can move to
+                if (potentialDestination.x > 0 
+                    && potentialDestination.x < totalColumns - 1 
+                    && isPossibleDestination(potentialDestination.x, potentialDestination.y, element)) {
+                    possibleDestinations.push(potentialDestination);
+                    totalWeight += potentialDestination.weight;
                 }
             }
 
+            // move on to the next pixel if no possible destinations to move
             if (possibleDestinations.length === 0) {
                 continue;
             }
+
+            let finalDestination;
 
             possibleDestinations.push({
                 x: x,
@@ -221,6 +209,9 @@ function getElementAtPixel(x, y) {
     }
     else if (isElement(actualColors, elements.oil)) {
         return 'oil';
+    }
+    else if (isElement(actualColors, elements.fire)) {
+        return 'fire';
     }
     else {
         return 'empty';
