@@ -41,6 +41,17 @@
         "b": 0,
         "direction": -1,
         "mortality": 15,
-        "engulfs": [ "oil" ]
+        "engulfs": [ "oil" ],
+        "engulfsWith": "fire2"
+    },
+    {
+        "name": "fire2",
+        "r": "0xff",
+        "g": "0x01",
+        "b": "0x01",
+        "direction": -1,
+        "mortality": 100,
+        "resurrectsInto": "fire",
+        "hidden": true
     }
 ]

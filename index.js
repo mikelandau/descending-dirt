@@ -50,7 +50,9 @@ async function init() {
         elements.push(element);
     }
 
-    const elementOptions = elements.map((element, i) => {
+    const selectableElements = elements.filter(x => !x.hidden);
+
+    const elementOptions = selectableElements.map((element, i) => {
         const elementOption = document.createElement('option');
         elementOption.setAttribute('value', element.name);
         if (i === 0) {
@@ -136,22 +138,34 @@ function cascadeRow(y, direction) {
 
         if (element.mortality) {
             // delete the pixel according to its "mortality" rate
-            const random = Math.floor(Math.random() * 100);
-            if (random < element.mortality) {
-                markPixel(x, y, elements[0]);
+            if (element.mortality >= 100 || Math.floor(Math.random() * 100) < element.mortality) {
+                if (element.resurrectsInto) {
+                    markPixel(x, y, getElementByName(element.resurrectsInto))
+                }
+                else {
+                    markPixel(x, y, elements[0]);
+                }
                 // once dead, move to the next pixel
                 continue;
             }
         }
 
+        // mark surrounding pixels with this element if the pixel contains an "engulfs" element.
         if (element.engulfs) {
+            let elementToEngulfWith;
+            if (element.engulfsWith) {
+                elementToEngulfWith = getElementByName(element.engulfsWith);
+            } else {
+                elementToEngulfWith = element;
+            }
+
             for (let i = x - 2; i <= x + 2; ++i) {
                 for (let j = y - 2; j <= y + 2; ++j) {
                     if (i > 0 && i < totalColumns && j > 0 && j < totalRows) {
                         const destElement = getElementAtPixel(i, j)
                         for (engulfedElement of element.engulfs) {
                             if (destElement.name === engulfedElement) {
-                                markPixel(i, j, element)
+                                markPixel(i, j, elementToEngulfWith)
                             }
                         }
                     }
@@ -251,6 +265,14 @@ function getElementAtPixel(x, y) {
     }
     // default to the first in the list (best this is set to "empty")
     return elements[0];
+}
+
+function getElementByName(name) {
+    for (const element of elements) {
+        if (element.name === name) {
+            return element;
+        }
+    }
 }
 
 function isElement(actualColors, element) {
