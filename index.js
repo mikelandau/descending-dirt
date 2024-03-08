@@ -20,6 +20,9 @@ let selectedElement;
 
 let totalRows = 0, totalColumns = 0;
 
+let lastMarkedX = -1;
+let lastMarkedY = -1;
+
 const CASCADE_DIRECTION_UP = -1, CASCADE_DIRECTION_DOWN = 1, CASCADE_DIRECTION_STILL = 0;
 
 function capitalize(s) {
@@ -89,15 +92,86 @@ function draw() {
     
     if (mouseButtonPressed) {
         const mouse = getCanvasMousePosition();
-
-        for (let i = mouse.X - 5; i < mouse.X + 5; ++i) {
-            for (let j = mouse.Y - 5; j < mouse.Y + 5; ++j) {
-                markSquare(mouse.X, mouse.Y, 5, selectedElement);
-            }
+        if (lastMarkedX < 0 || lastMarkedY < 0 || (lastMarkedX === mouse.X && lastMarkedY === mouse.Y)) {
+            markSquare(mouse.X, mouse.Y, 5, selectedElement);
         }
+        else {
+            markSquaresInLine(lastMarkedX, lastMarkedY, mouse.X, mouse.Y, 5, selectedElement);
+        }
+        lastMarkedX = mouse.X;
+        lastMarkedY = mouse.Y;
+    } else {
+        lastMarkedX = -1;
+        lastMarkedY = -1;
     }
 
     drawImageDataToCanvas(imageData);
+}
+
+function markSquaresInLine(x0, y0, x1, y1, radius, element) {
+    absoluteDeltaX = Math.abs(x1 - x0);
+    absoluteDeltaY = Math.abs(y1 - y0);
+    if (absoluteDeltaY < absoluteDeltaX) {
+        // octet 0, 3, 4, 7
+        if (x0 > x1) {
+            // octet 0, 7
+            markLineLow(x1, y1, x0, y0, radius, element);
+        } else {
+            // octet 3, 4
+            markLineLow(x0, y0, x1, y1, radius, element);
+        }
+    } else {
+        // octet 1, 2, 5, 6
+        if (y0 > y1) {
+            // octet 1, 2
+            markLineHigh(x1, y1, x0, y0, radius, element);
+        } else {
+            // octet 5, 6
+            markLineHigh(x0, y0, x1, y1, radius, element);
+        }
+    }
+}
+
+function markLineHigh(x0, y0, x1, y1, radius, element) {
+    let deltaX = x1 - x0;
+    const deltaY = y1 - y0;
+    let intervalX = 1;
+    if (deltaX < 0) {
+        intervalX = -1;
+        deltaX = -deltaX;
+    }
+    let difference = 2 * deltaX - deltaY;
+    let x = x0;
+    for (let y = y0; y <= y1; ++y) {
+        markSquare(x, y, radius, element);
+        if (difference > 0) {
+            x += intervalX;
+            difference = difference + (2 * (deltaX - deltaY));
+        } else {
+            difference = difference + 2 * deltaX;
+        }
+    }
+}
+
+function markLineLow(x0, y0, x1, y1, radius, element) {
+    const deltaX = x1 - x0;
+    let deltaY = y1 - y0;
+    let intervalY = 1;
+    if (deltaY < 0) {
+        intervalY = -1;
+        deltaY = -deltaY;
+    }
+    let difference = 2 * deltaY - deltaX;
+    let y = y0;
+    for (let x = x0; x <= x1; ++x) {
+        markSquare(x, y, radius, element);
+        if (difference > 0) {
+            y += intervalY;
+            difference += (2 * (deltaY - deltaX));
+        } else {
+            difference += 2 * deltaY;
+        }
+    }
 }
 
 function getCanvasMousePosition() {
