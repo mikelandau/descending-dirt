@@ -1,24 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Descending Dirt</title>
-    <link rel="stylesheet" href="./style.css">
-    <link rel="icon" href="./favicon.ico" type="image/x-icon">
-  </head>
-  <body>
-    <main>
-        <div id="ddToolbox" class="ddToolbox">
-            <div>
-            <label for="element">Element</div>
-            <select name="element" id="element">
-            </select>
-            </div>
-        </div>
-        <canvas id="ddCanvas" class="ddCanvas" width="800" height="800"></canvas>
-    </main>
-	<script src="index.js"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Descending Dirt</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="icon" href="./favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital@0;1&display=swap" rel="stylesheet">
+</head>
+
+<body class="roboto-mono-descending-dirt">
+  <main>
+    <div id="ddToolbox" class="ddToolbox">
+      <div>
+        <label for="element">Element</label>
+      </div>
+      <select name="element" id="element">
+      </select>
+      <div id="fpsCounter" class="fpsCounter"></div>
+      <table class="controls">
+        <tr>
+          <td><img src="keys/c.png" class="controlKey" /></td>
+          <td>Clear</td>
+        </tr>
+        <tr>
+          <td><img src="keys/f.png" class="controlKey" /></td>
+          <td>Show FPS</td>
+        </tr>
+        <tr>
+          <td><img src="keys/period-gt.png" class="controlKey"></td>
+          <td>Pause</td>
+        </tr>
+        <tr>
+          <td><img src="keys/comma-lt.png" class="controlKey"></td>
+          <td>Advance Frame</td>
+        </tr>
+      </table>
+    </div>
+    <canvas id="ddCanvas" class="ddCanvas" width="800" height="800"></canvas>
+  </main>
+  <script src="index.js"></script>
+</body>
+
 </html>
