@@ -22,9 +22,6 @@ let showFps = false;
 let destinations = [];
 let stayPutWeight = 1;
 
-let elements = [];
-let selectedElement;
-
 let totalRows = 0, totalColumns = 0;
 
 let lastMarkedX = -1;
@@ -32,7 +29,19 @@ let lastMarkedY = -1;
 
 const CASCADE_DIRECTION_UP = -1, CASCADE_DIRECTION_DOWN = 1, CASCADE_DIRECTION_STILL = 0;
 
-let lastFrameTimestamp;
+let elementColors = {
+    empty: [0, 0, 0],
+    sand:  [0xff, 0xcb, 0x6b],
+    wall:  [0xaa, 0xaa, 0xaa],
+    water: [0x20, 0x40, 0xff],
+    oil:   [0x87, 0x5d, 0x3a],
+    fire:  [0xff, 0, 0],
+    fire2: [0xff, 0x01, 0x01],
+    plant: [0x50, 0xc8, 0x78],
+    plant2:[0x50, 0xc9, 0x79]
+};
+
+let selectedElement = 'sand';
 
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
@@ -45,62 +54,14 @@ async function init() {
     destinations = destinationsJson.destinations;
     stayPutWeight = destinationsJson.stayPutWeight;
 
-    console.log('loading elements');
-    const elementsResponse = await fetch('elements.json');
-    const elementsJson = await elementsResponse.json();
-    elements = [];
-    for (const elementJson of elementsJson) {
-        // parse string color value to integer -- comparing integers is faster than comparing strings.
-        // json doesn't support hex literals, so this way we can use either hex string or decimal integer
-        // in the json file, but the actual object will always use integers.
-        const element = {
-            ...elementJson,
-            r: parseInt(elementJson.r),
-            g: parseInt(elementJson.g),
-            b: parseInt(elementJson.b)
-        };
-        elements.push(element);
-    }
-
-    const selectableElements = elements.filter(x => !x.hidden);
-
-    // take off the default element, add it to the end
-    const defaultElement = selectableElements.shift();
-    selectableElements.push(defaultElement);
-
-    const elementOptions = selectableElements.map((element, i) => {
-        const elementOption = document.createElement('option');
-
-        elementOption.setAttribute('value', element.name);
-        if (i === 0) {
-            elementOption.selected = true;
-        }
-
-        let displayName;
-        if (i == selectableElements.length - 1) {
-            displayName = 'Eraser';
-        }
-        else {
-            displayName = capitalize(element.name);
-        }
-        const textContent = document.createTextNode(displayName);
-        elementOption.appendChild(textContent);
-        return elementOption;
-    });
-
-    elementDropDown.innerText = '';
-    for (const option of elementOptions) {
-        elementDropDown.appendChild(option);
-    }
-
-    selectedElement = elements.find(element => element.name === selectableElements[0].name);
-
     const bounding = canvas.getBoundingClientRect();
     await clearCanvas(ctx);
     imageData = ctx.getImageData(0, 0, bounding.width, bounding.height);
     totalRows = imageData.width;
     totalColumns = imageData.height;
 }
+
+let lastFrameTimestamp;
 
 function step() {
     draw();
@@ -110,7 +71,7 @@ function step() {
         if (lastFrameTimestamp) {
             var msDifference = timestampNow - lastFrameTimestamp;
             var fps = Math.floor(1000 / msDifference);
-            fpsCounter.innerText = `${fps} FPS`;
+            fpsCounter.innerText = `${fps} FPS`
         }
         lastFrameTimestamp = timestampNow;
     }
@@ -151,7 +112,7 @@ function draw() {
 function clear() {
     for (let x = 0; x < totalColumns; ++x) {
         for (let y = 0; y < totalRows; ++y) {
-            markPixel(x, y, elements[0]);
+            markPixel(x, y, 'empty');
         }
     }
 }
@@ -233,75 +194,130 @@ function getCanvasMousePosition() {
 function cascade() {
     // clear bottom and top row
     for (let x = 0; x < totalColumns; ++x) {
-        markPixel(x, 0, elements[0]);
-        markPixel(x, totalRows - 1, elements[0]);
+        markPixel(x, 0, 'empty');
+        markPixel(x, totalRows - 1, 'empty');
     }
 
     // cascade down starting from next to bottom row and working up
     for (let y = totalRows - 2; y >= 1; --y) {
         cascadeRow(y, CASCADE_DIRECTION_DOWN)
     }
-
+    
     // cascade up starting from next to top row and working down
     for (let y = 1; y < totalRows - 2; ++y) {
         cascadeRow(y, CASCADE_DIRECTION_UP)
     }
 }
 
+function shouldCascadeDown(element) {
+    return element === 'sand' ||
+        element === 'water' ||
+        element === 'oil' ||
+        element === 'plant' ||
+        element === 'plant2'
+}
+
+function shouldCascadeUp(element) {
+    return element === 'fire' ||
+        element === 'fire2'
+}
+
+function shouldNotMove(element) {
+    return element === 'plant' ||
+        element === 'plant2';
+}
+
+function isElementMortal(element) {
+    return element === 'fire' ||
+        element === 'fire2' ||
+        element === 'plant2'
+}
+
+function getElementMortality(element) {
+    if (element === 'fire') {
+        return 15;
+    }
+    return 100;
+}
+
+function getElementToRessurectInto(element) {
+    if (element === 'fire') {
+        return 'empty';
+    }
+    if (element === 'fire2') {
+        return 'fire';
+    }
+    if (element === 'plant2') {
+        return 'plant';
+    }
+}
+
+function getElementToEngulfWith(element) {
+    if (element === 'fire') {
+        return 'fire2';
+    }
+    if (element === 'plant') {
+        return 'plant2';
+    }
+}
+
 function cascadeRow(y, direction) {
     // loop through every pixel of this row
     for (let x = 0; x < totalColumns; ++x) {
-        const element = getElementAtPixel(x, y);
+        
+        const elementId = getElementIdAtPixel(x, y);
 
         // if cascading down, process still and downward elements. If cascading up, only process upward elements
-        if (element.name === 'empty' ||
-            direction === CASCADE_DIRECTION_DOWN && element.direction === CASCADE_DIRECTION_UP ||
-            direction === CASCADE_DIRECTION_UP && element.direction !== CASCADE_DIRECTION_UP) {
-                continue;
-            }
+        if (elementId === 'empty' ||
+            (direction === CASCADE_DIRECTION_DOWN && !shouldCascadeDown(elementId)) ||
+            (direction === CASCADE_DIRECTION_UP && !shouldCascadeUp(elementId))) {
+            continue;
+        }
 
-        if (element.mortality) {
+        if (isElementMortal(elementId)) {
             // delete the pixel according to its "mortality" rate
-            if (element.mortality >= 100 || Math.floor(Math.random() * 100) < element.mortality) {
-                if (element.resurrectsInto) {
-                    markPixel(x, y, getElementByName(element.resurrectsInto))
-                }
-                else {
-                    markPixel(x, y, elements[0]);
-                }
+            const mortality = getElementMortality(elementId);
+            if (mortality >= 100 || Math.floor(Math.random() * 100) < mortality) {
+                markPixel(x, y, getElementToRessurectInto(elementId));
                 // once dead, move to the next pixel
                 continue;
             }
         }
 
-        // mark surrounding pixels with this element if the pixel contains an "engulfs" element.
-        // TODO: Maybe we can improve this, I think this is going slow
-        if (element.engulfs) {
-            for (const engulf of element.engulfs) {
-                let elementToEngulfWith;
-                if (engulf.into) {
-                    elementToEngulfWith = getElementByName(engulf.into);
-                } else {
-                    elementToEngulfWith = element;
+        // for fire pixels, engulf the surrounding oil pixels with a radius of 2
+        if (elementId === 'fire') {
+            for (let i = x - 2; i <= x + 2; ++i) {
+                for (let j = y - 2; j <= y + 2; ++j) {
+                    if (i < 0 || i >= totalColumns || j < 0 || j >= totalRows) {
+                        continue;
+                    }
+                    const destElement = getElementIdAtPixel(i, j)
+                    if (destElement === 'oil') {
+                        markPixel(i, j, 'fire2')
+                    }
                 }
+            }
+        }
 
-                const radius = engulf.radius || 1;
-
-                for (let i = x - radius; i <= x + radius; ++i) {
-                    for (let j = y - radius; j <= y + radius; ++j) {
-                        if (i > 0 && i < totalColumns && j > 0 && j < totalRows) {
-                            const destElement = getElementAtPixel(i, j)
-                            if (destElement.name === engulf.dest) {
-                                markPixel(i, j, elementToEngulfWith)
-                            }
-                        }
+        // fire engulfs plant and plant engulfs water with radius of 1 pixel
+        if (elementId === 'fire' || elementId === 'plant') {
+            for (let i = x - 1; i <= x + 1; ++i) {
+                for (let j = y - 1; j <= y + 1; ++j) {
+                    if (i < 0 || i >= totalColumns || j < 0 || j >= totalRows) {
+                        continue;
+                    }
+                    const destElement = getElementIdAtPixel(i, j);
+                    if (elementId === 'fire' && destElement === 'plant') {
+                        markPixel(i, j, 'fire2');
+                    } else if (elementId === 'plant' && destElement === 'water') {
+                        markPixel(i, j, 'plant2');
                     }
                 }
             }
         }
 
         // no need to process further for elements that don't move
-        if (element.direction === CASCADE_DIRECTION_STILL) {
+        if (shouldNotMove(elementId)) {
             continue;
         }
 
@@ -312,14 +328,14 @@ function cascadeRow(y, direction) {
             // add the deltas to the current pixel
             var potentialDestination = {
                 x: x + dest.deltaX,
-                y: y + dest.deltaY * element.direction,
+                y: y + dest.deltaY * direction,
                 weight: dest.weight
             };
 
             // see if that's a space this pixel can move to
             if (potentialDestination.x > 0
                 && potentialDestination.x < totalColumns - 1
-                && isPossibleDestination(potentialDestination.x, potentialDestination.y, element)) {
+                && isPossibleDestination(potentialDestination.x, potentialDestination.y, elementId)) {
                 possibleDestinations.push(potentialDestination);
                 totalWeight += potentialDestination.weight;
             }
@@ -355,24 +371,20 @@ function cascadeRow(y, direction) {
         }
 
         // swap the two pixels
-        const destOriginalElement = getElementAtPixel(finalDestination.x, finalDestination.y);
+        const destOriginalElement = getElementIdAtPixel(finalDestination.x, finalDestination.y);
         markPixel(x, y, destOriginalElement);
-        markPixel(finalDestination.x, finalDestination.y, element)
+        markPixel(finalDestination.x, finalDestination.y, elementId);
     }
 }
 
 
 function isPossibleDestination(destX, destY, sourceElement) {
-    const destElement = getElementAtPixel(destX, destY);
-    if (destElement.name === 'empty') {
+    const destElement = getElementIdAtPixel(destX, destY);
+    if (destElement === 'empty') {
         return true;
     }
-    if (sourceElement.penetrates) {
-        for (const penetrated of sourceElement.penetrates) {
-            if (penetrated === destElement.name) {
-                return true;
-            }
-        }
+    if (sourceElement === 'water' && destElement === 'oil') {
+        return true;
     }
     return false;
 }
@@ -386,39 +398,49 @@ function drawImageDataToCanvas() {
     ctx.putImageData(imageData, 0, 0);
 }
 
-function getElementAtPixel(x, y) {
+function getElementIdAtPixel(x, y) {
     const pixelIndex = getImageDataPixelIndex(x, y);
-    const actualR = imageData.data[pixelIndex];
-    const actualG = imageData.data[pixelIndex + 1];
-    const actualB = imageData.data[pixelIndex + 2];
+    const r = imageData.data[pixelIndex];
+    const g = imageData.data[pixelIndex + 1];
+    const b = imageData.data[pixelIndex + 2];
 
-    const actualColors = {
-        r: actualR,
-        g: actualG,
-        b: actualB
+    const actualColors = { r, g, b };
+
+    if (colorsMatchElement(actualColors, elementColors.empty)) {
+        return 'empty';
+    }
+    if (colorsMatchElement(actualColors, elementColors.sand)) {
+        return 'sand';
+    }
+    if (colorsMatchElement(actualColors, elementColors.wall)) {
+        return 'wall';
+    }
+    if (colorsMatchElement(actualColors, elementColors.water)) {
+        return 'water';
+    }
+    if (colorsMatchElement(actualColors, elementColors.oil)) {
+        return 'oil';
+    }
+    if (colorsMatchElement(actualColors, elementColors.fire)) {
+        return 'fire';
+    }
+    if (colorsMatchElement(actualColors, elementColors.fire2)) {
+        return 'fire2';
+    }
+    if (colorsMatchElement(actualColors, elementColors.plant)) {
+        return 'plant';
+    }
+    if (colorsMatchElement(actualColors, elementColors.plant2)) {
+        return 'plant2';
     }
 
-    for (const element of elements) {
-        if (isElement(actualColors, element)) {
-            return element;
-        }
-    }
-    // default to the first in the list (best this is set to "empty")
-    return elements[0];
+    return 'empty';
 }
 
-function getElementByName(name) {
-    for (const element of elements) {
-        if (element.name === name) {
-            return element;
-        }
-    }
-}
-
-function isElement(actualColors, element) {
-    return actualColors.r === element.r
-        && actualColors.g === element.g
-        && actualColors.b === element.b;
+function colorsMatchElement(actualColors, elementColors) {
+    return actualColors.r === elementColors[0]
+        && actualColors.g === elementColors[1]
+        && actualColors.b === elementColors[2];
 }
 
 function getImageDataPixelIndex(x, y) {
@@ -433,16 +455,18 @@ function markSquare(x, y, radius, element) {
     }
 }
 
-function markPixel(x, y, element) {
+function markPixel(x, y, elementId) {
     if (x < 0 || x >= imageData.width || y < 0 || y >= imageData.height) {
         return;
     }
+    
+    const colors = elementColors[elementId];
 
     var pixels = imageData.data;
     var pixelIndex = y * (imageData.width * 4) + x * 4;
-    pixels[pixelIndex] = element.r;
-    pixels[pixelIndex + 1] = element.g;
-    pixels[pixelIndex + 2] = element.b;
+    pixels[pixelIndex] = colors[0];
+    pixels[pixelIndex + 1] = colors[1];
+    pixels[pixelIndex + 2] = colors[2];
     pixels[pixelIndex + 3] = 0xff;
 }
 
@@ -483,13 +507,7 @@ document.addEventListener('keydown', function (event) {
 });
 
 elementDropDown.addEventListener('change', event => {
-    const elementName = event.target.value;
-    for (const element of elements) {
-        if (element.name === elementName) {
-            console.log(element);
-            selectedElement = element;
-            return;
-        }
-    }
-    console.error(`invalid element: ${elementName}`);
+    const elementId = event.target.value;
+    selectedElement = elementId;
+    console.log(`Selected Element is: ${selectedElement}`);
 })

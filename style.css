@@ -40,3 +40,7 @@ main {
 .controls {
     margin-top:auto;
 }
+
+.fpsCounter {
+    line-height: 1;
+}
