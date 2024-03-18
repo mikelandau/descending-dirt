@@ -50,7 +50,7 @@ async function init() {
     const elementsJson = await elementsResponse.json();
     elements = [];
     for (const elementJson of elementsJson) {
-        // parse string color value to integer -- comparing integers is faster than comparing strings.
+        // parse string color value to integer
         // json doesn't support hex literals, so this way we can use either hex string or decimal integer
         // in the json file, but the actual object will always use integers.
         const element = {
@@ -275,7 +275,6 @@ function cascadeRow(y, direction) {
         }
 
         // mark surrounding pixels with this element if the pixel contains an "engulfs" element.
-        // TODO: Maybe we can improve this, I think this is going slow
         if (element.engulfs) {
             for (const engulf of element.engulfs) {
                 let elementToEngulfWith;
